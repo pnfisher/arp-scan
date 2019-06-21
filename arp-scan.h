@@ -169,6 +169,10 @@
 /* Structures */
 
 typedef struct {
+	unsigned char addr[6];
+} filter_mac;
+
+typedef struct {
    unsigned timeout;		/* Timeout for this host in us */
    struct in_addr addr;		/* Host IP address */
    struct timeval last_send_time; /* Time when last packet sent to this addr */
@@ -241,6 +245,7 @@ unsigned char *hex2data(const char *, size_t *);
 unsigned int hstr_i(const char *);
 char *hexstring(const unsigned char *, size_t);
 int get_ether_addr(const char *, unsigned char *);
+int get_ether_addrs(const char *, size_t *, filter_mac **);
 int add_mac_vendor(const char *);
 char *get_mac_vendor_filename(const char *, const char *, const char *);
 /* Wrappers */

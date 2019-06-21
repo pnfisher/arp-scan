@@ -75,6 +75,9 @@ static int eth_pro=DEFAULT_ETH_PRO;	/* Ethernet protocol type */
 static unsigned char arp_tha[6] = {0, 0, 0, 0, 0, 0};
 static unsigned char target_mac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 static unsigned char source_mac[6];
+static filter_mac *filter_macs=NULL;
+static size_t num_filters = 0;
+static filter_mac *filter_match=NULL;
 static int source_mac_flag = 0;
 static unsigned char *padding=NULL;
 static size_t padding_len=0;
@@ -510,6 +513,8 @@ main(int argc, char *argv[]) {
    reset_cum_err = 1;
    req_interval = interval;
    while (live_count) {
+	   if (num_filters > 0 && filter_match)
+		   break;
 /*
  *      Obtain current time and calculate deltas since last packet and
  *      last packet to this host.
@@ -605,6 +610,17 @@ main(int argc, char *argv[]) {
    clean_up(pcap_handle);
    if (write_pkt_to_file)
       close(write_pkt_to_file);
+
+   if (num_filters) {
+	   if (filter_match) {
+		   printf("Filter match found: ");
+		   for(i = 0; i < sizeof(filter_mac) - 1; i++)
+			   printf("0x%02x:", filter_match->addr[i]);
+		   printf("0x%02x\n", filter_match->addr[i]);
+	   }
+	   else
+		   err_msg("Filter match not found");
+   }
 
    Gettimeofday(&end_time);
    timeval_diff(&end_time, &start_time, &elapsed_time);
@@ -1588,7 +1604,6 @@ find_host(host_entry **he, struct in_addr *addr) {
       }
    } while (!found && p != he);
 
-
    if (found)
       return *p;
    else
@@ -1735,8 +1750,25 @@ callback(u_char *args ATTRIBUTE_UNUSED,
          if (pcap_dump_handle) {
             pcap_dump((unsigned char *)pcap_dump_handle, header, packet_in);
          }
-         display_packet(temp_cursor, &arpei, extra_data, extra_data_len,
-                        framing, vlan_id, &frame_hdr, header);
+		 if (num_filters) {
+			 size_t i, j;
+			 for(i = 0, j = 0; num_filters && i < num_filters; i++) {
+				 for (j = 0; j < sizeof(filter_mac); j++) {
+					 if (filter_macs[i].addr[j] != arpei.ar_sha[j])
+						 break;
+				 }
+				 if (j == sizeof(filter_mac)) {
+					 display_packet(temp_cursor, &arpei, extra_data,
+									extra_data_len, framing, vlan_id,
+									&frame_hdr, header);
+					 filter_match = &filter_macs[i];
+					 break;
+				 }
+			 }
+		 }
+		 else
+			 display_packet(temp_cursor, &arpei, extra_data, extra_data_len,
+							framing, vlan_id, &frame_hdr, header);
          responders++;
       }
       if (verbose > 1)
@@ -1791,6 +1823,7 @@ process_options(int argc, char *argv[]) {
       {"arphrd", required_argument, 0, 'H'},
       {"arppro", required_argument, 0, 'p'},
       {"destaddr", required_argument, 0, 'T'},
+	  {"filters", required_argument, 0, 'X'},
       {"arppln", required_argument, 0, 'P'},
       {"arphln", required_argument, 0, 'a'},
       {"padding", required_argument, 0, 'A'},
@@ -1817,7 +1850,7 @@ process_options(int argc, char *argv[]) {
  * Digits:      0123456789
  */
    const char *short_options =
-      "f:hr:t:i:b:vVn:I:qgRNB:O:s:o:H:p:T:P:a:A:y:u:w:S:F:m:lLQ:W:Dx";
+      "f:hr:t:i:b:vVn:I:qgRNB:O:s:o:H:p:T:X:P:a:A:y:u:w:S:F:m:lLQ:W:Dx";
    int arg;
    int options_index=0;
 
@@ -1906,6 +1939,11 @@ process_options(int argc, char *argv[]) {
             if (result != 0)
                err_msg("Invalid target MAC address: %s", optarg);
             break;
+		 case 'X':
+			result = get_ether_addrs(optarg, &num_filters, &filter_macs);
+            if (result != 0)
+               err_msg("couldn't load filter macs", optarg);
+			break;
          case 'P':	/* --arppln */
             arp_pln=Strtol(optarg, 0);
             break;

@@ -29,18 +29,18 @@
 #include "arp-scan.h"
 
 /*
- *	timeval_diff -- Calculates the difference between two timevals
- *	and returns this difference in a third timeval.
+ *  timeval_diff -- Calculates the difference between two timevals
+ *  and returns this difference in a third timeval.
  *
- *	Inputs:
+ *  Inputs:
  *
- *	a       = First timeval
- *	b       = Second timeval
- *	diff    = Difference between timevals (a - b).
+ *  a       = First timeval
+ *  b       = Second timeval
+ *  diff    = Difference between timevals (a - b).
  *
- *	Returns:
+ *  Returns:
  *
- *	None.
+ *  None.
  */
 void
 timeval_diff(const struct timeval *a, const struct timeval *b,
@@ -69,21 +69,21 @@ timeval_diff(const struct timeval *a, const struct timeval *b,
 }
 
 /*
- *	hstr_i -- Convert two-digit hex string to unsigned integer
+ *  hstr_i -- Convert two-digit hex string to unsigned integer
  *
- *	Inputs:
+ *  Inputs:
  *
- *	cptr	Two-digit hex string
+ *  cptr    Two-digit hex string
  *
- *	Returns:
+ *  Returns:
  *
- *	Number corresponding to input hex value.
+ *  Number corresponding to input hex value.
  *
- *	An input of "0A" or "0a" would return 10.
- *	Note that this function does no sanity checking, it's up to the
- *	caller to ensure that *cptr points to at least two hex digits.
+ *  An input of "0A" or "0a" would return 10.
+ *  Note that this function does no sanity checking, it's up to the
+ *  caller to ensure that *cptr points to at least two hex digits.
  *
- *	This function is a modified version of hstr_i at www.snippets.org.
+ *  This function is a modified version of hstr_i at www.snippets.org.
  */
 unsigned int
 hstr_i(const char *cptr)
@@ -103,21 +103,21 @@ hstr_i(const char *cptr)
 }
 
 /*
- *	hex2data -- Convert hex string to binary data
+ *  hex2data -- Convert hex string to binary data
  *
- *	Inputs:
+ *  Inputs:
  *
- *	string		The string to convert
- *	data_len	(output) The length of the resultant binary data
+ *  string      The string to convert
+ *  data_len    (output) The length of the resultant binary data
  *
- *	Returns:
+ *  Returns:
  *
- *	Pointer to the binary data.
+ *  Pointer to the binary data.
  *
- *	The returned pointer points to malloc'ed storage which should be
- *	free'ed by the caller when it's no longer needed.  If the length of
- *	the input string is not even, the function will return NULL and
- *	set data_len to 0.
+ *  The returned pointer points to malloc'ed storage which should be
+ *  free'ed by the caller when it's no longer needed.  If the length of
+ *  the input string is not even, the function will return NULL and
+ *  set data_len to 0.
  */
 unsigned char *
 hex2data(const char *string, size_t *data_len) {
@@ -126,7 +126,7 @@ hex2data(const char *string, size_t *data_len) {
    unsigned i;
    size_t len;
 
-   if (strlen(string) %2 ) {	/* Length is odd */
+   if (strlen(string) %2 ) {    /* Length is odd */
       *data_len = 0;
       return NULL;
    }
@@ -180,23 +180,23 @@ make_message(const char *fmt, ...) {
 }
 
 /*
- *	hexstring -- Convert data to printable hex string form
+ *  hexstring -- Convert data to printable hex string form
  *
- *	Inputs:
+ *  Inputs:
  *
- *	string	Pointer to input data.
- *	size	Size of input data.
+ *  string  Pointer to input data.
+ *  size    Size of input data.
  *
- *	Returns:
+ *  Returns:
  *
- *	Pointer to the printable hex string.
+ *  Pointer to the printable hex string.
  *
- *	Each byte in the input data will be represented by two hex digits
- *	in the output string.  Therefore the output string will be twice
- *	as long as the input data plus one extra byte for the trailing NULL.
+ *  Each byte in the input data will be represented by two hex digits
+ *  in the output string.  Therefore the output string will be twice
+ *  as long as the input data plus one extra byte for the trailing NULL.
  *
- *	The pointer returned points to malloc'ed storage which should be
- *	free'ed by the caller when it's no longer needed.
+ *  The pointer returned points to malloc'ed storage which should be
+ *  free'ed by the caller when it's no longer needed.
  */
 char *
 hexstring(const unsigned char *data, size_t size) {
@@ -205,7 +205,7 @@ hexstring(const unsigned char *data, size_t size) {
    const unsigned char *cp;
    unsigned i;
 /*
- *	If the input data is NULL, return an empty string.
+ *  If the input data is NULL, return an empty string.
  */
    if (data == NULL) {
       result = Malloc(1);
@@ -213,7 +213,7 @@ hexstring(const unsigned char *data, size_t size) {
       return result;
    }
 /*
- *	Create and return hex string.
+ *  Create and return hex string.
  */
    result = Malloc(2*size + 1);
    cp = data;
@@ -232,8 +232,8 @@ hexstring(const unsigned char *data, size_t size) {
  *
  * Inputs:
  *
- * address_string	The text string containing the address
- * ether_addr		(output) The Ethernet hardware address
+ * address_string   The text string containing the address
+ * ether_addr       (output) The Ethernet hardware address
  *
  * Returns:
  *
@@ -272,15 +272,71 @@ get_ether_addr(const char *address_string, unsigned char *ether_addr) {
 }
 
 /*
- *	str_to_bandwidth -- Convert a bandwidth string to unsigned integer
+ * get_ether_addrs -- Get Ethernet hardware addresses from file
  *
- *	Inputs:
+ * Inputs:
  *
- *	bandwidth_string	The bandwidth string to convert
+ * fname            The text string containing the filename of the file
+ *                  containing the hardware addreses
+ * num_filters      (output) The number of hardware addresses read from file
+ * fmacs            (output) The Ethernet hardware address read from file
  *
- *	Returns:
+ * Returns:
  *
- *	The bandwidth in bits per second as an unsigned integer
+ * Zero on success or -1 on failure.
+ *
+ * The address_strings should contain an Ethernet hardware address in one
+ * of the following formats:
+ *
+ * 01-23-45-67-89-ab
+ * 01:23:45:67:89:ab
+ *
+ * The hex characters [a-z] may be specified in either upper or lower case.
+ */
+int
+get_ether_addrs(const char * fname, size_t *num_filters, filter_mac **fmacs)
+{
+    FILE * fp = fopen(fname, "r");
+    char addr[MAXLINE] = { 0 };
+    size_t max_filters = 0;
+    int result = 0;
+
+    if (!fp)
+        return -1;
+
+    while((fgets(addr, sizeof(addr), fp))) {
+        int len = strlen(addr);
+        if (len > 0 && addr[len] == '\n')
+            addr[len] = 0;
+        if (*num_filters == max_filters) {
+            max_filters += 10;
+            *fmacs = realloc(*fmacs, sizeof(filter_mac) * max_filters);
+            if (!*fmacs)
+            {
+                result = -1;
+                break;
+            }
+        }
+        if ((result = get_ether_addr(addr, (*fmacs)[*num_filters].addr)) != 0)
+            break;
+        (*num_filters)++;
+    }
+
+    if (fp)
+        fclose(fp);
+    return result;
+}
+
+/*
+ *  str_to_bandwidth -- Convert a bandwidth string to unsigned integer
+ *
+ *  Inputs:
+ *
+ *  bandwidth_string    The bandwidth string to convert
+ *
+ *  Returns:
+ *
+ *  The bandwidth in bits per second as an unsigned integer
  */
 unsigned
 str_to_bandwidth(const char *bandwidth_string) {
@@ -290,11 +346,11 @@ str_to_bandwidth(const char *bandwidth_string) {
    int multiplier=1;
    int end_char;
 
-   bandwidth_str=dupstr(bandwidth_string);	/* Writable copy */
+   bandwidth_str=dupstr(bandwidth_string);  /* Writable copy */
    bandwidth_len=strlen(bandwidth_str);
    end_char = bandwidth_str[bandwidth_len-1];
-   if (!isdigit(end_char)) {	/* End character is not a digit */
-      bandwidth_str[bandwidth_len-1] = '\0';	/* Remove last character */
+   if (!isdigit(end_char)) {    /* End character is not a digit */
+      bandwidth_str[bandwidth_len-1] = '\0';    /* Remove last character */
       switch (end_char) {
          case 'M':
          case 'm':
@@ -316,15 +372,15 @@ str_to_bandwidth(const char *bandwidth_string) {
 }
 
 /*
- *	str_to_interval -- Convert an interval string to unsigned integer
+ *  str_to_interval -- Convert an interval string to unsigned integer
  *
- *	Inputs:
+ *  Inputs:
  *
- *	interval_string		The interval string to convert
+ *  interval_string     The interval string to convert
  *
- *	Returns:
+ *  Returns:
  *
- *	The interval in microsecons as an unsigned integer
+ *  The interval in microsecons as an unsigned integer
  */
 unsigned
 str_to_interval(const char *interval_string) {
@@ -334,11 +390,11 @@ str_to_interval(const char *interval_string) {
    int multiplier=1000;
    int end_char;
 
-   interval_str=dupstr(interval_string);	/* Writable copy */
+   interval_str=dupstr(interval_string);    /* Writable copy */
    interval_len=strlen(interval_str);
    end_char = interval_str[interval_len-1];
-   if (!isdigit(end_char)) {	/* End character is not a digit */
-      interval_str[interval_len-1] = '\0';	/* Remove last character */
+   if (!isdigit(end_char)) {    /* End character is not a digit */
+      interval_str[interval_len-1] = '\0';  /* Remove last character */
       switch (end_char) {
          case 'U':
          case 'u':
@@ -360,28 +416,28 @@ str_to_interval(const char *interval_string) {
 }
 
 /*
- *	dupstr -- duplicate a string
+ *  dupstr -- duplicate a string
  *
- *	Inputs:
+ *  Inputs:
  *
- *	str	The string to duplcate
+ *  str The string to duplcate
  *
- *	Returns:
+ *  Returns:
  *
- *	A pointer to the duplicate string.
+ *  A pointer to the duplicate string.
  *
- *	This is a replacement for the common but non-standard "strdup"
- *	function.
+ *  This is a replacement for the common but non-standard "strdup"
+ *  function.
  *
- *	The returned pointer points to Malloc'ed memory, which must be
- *	free'ed by the caller.
+ *  The returned pointer points to Malloc'ed memory, which must be
+ *  free'ed by the caller.
  */
 char *
 dupstr(const char *str) {
    char *cp;
    size_t len;
 
-   len = strlen(str) + 1;	/* Allow space for terminating NULL */
+   len = strlen(str) + 1;   /* Allow space for terminating NULL */
    cp = Malloc(len);
    strlcpy(cp, str, len);
    return cp;

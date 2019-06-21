@@ -78,6 +78,8 @@ static unsigned char source_mac[6];
 static filter_mac *filter_macs=NULL;
 static size_t num_filters = 0;
 static filter_mac *filter_match=NULL;
+static char *filter_ip=NULL;
+static char *match_file=NULL;
 static int source_mac_flag = 0;
 static unsigned char *padding=NULL;
 static size_t padding_len=0;
@@ -628,6 +630,29 @@ main(int argc, char *argv[]) {
 		   for(i = 0; i < sizeof(filter_mac) - 1; i++)
 			   printf("0x%02x:", filter_match->addr[i]);
 		   printf("0x%02x\n", filter_match->addr[i]);
+		   if (match_file && filter_ip && !filename_flag) {
+			   FILE *fp = fopen(match_file, "a+");
+			   if (fp) {
+				   char ip[MAXLINE] = { 0 };
+				   int found = 0;
+				   while((fgets(ip, sizeof(ip), fp))) {
+					   int len = strlen(ip);
+					   if (len > 0 && ip[len] == '\n')
+						   ip[len] = 0;
+					   if (!strncmp(filter_ip, ip, len - 1) && !ip[len])
+					   {
+						   found = 1;
+						   break;
+					   }
+				   }
+				   if (!found)
+				   {
+					   fputs(filter_ip, fp);
+					   fputc('\n', fp);
+				   }
+				   fclose(fp);
+			   }
+		   }
 	   }
 	   else
 		   err_msg("Filter match not found");
@@ -1772,6 +1797,7 @@ callback(u_char *args ATTRIBUTE_UNUSED,
 					 display_packet(temp_cursor, &arpei, extra_data,
 									extra_data_len, framing, vlan_id,
 									&frame_hdr, header);
+					 filter_ip = strdup(my_ntoa(temp_cursor->addr));
 					 filter_match = &filter_macs[i];
 					 break;
 				 }
@@ -1834,7 +1860,8 @@ process_options(int argc, char *argv[]) {
       {"arphrd", required_argument, 0, 'H'},
       {"arppro", required_argument, 0, 'p'},
       {"destaddr", required_argument, 0, 'T'},
-	  {"filters", required_argument, 0, 'X'},
+	  {"filters", required_argument, 0, 'E'},
+	  {"matches", required_argument, 0, 'M'},
       {"arppln", required_argument, 0, 'P'},
       {"arphln", required_argument, 0, 'a'},
       {"padding", required_argument, 0, 'A'},
@@ -1857,11 +1884,11 @@ process_options(int argc, char *argv[]) {
  * available short option characters:
  *
  * lower:       --cde----jk--------------z
- * UPPER:       --C-E-G--JK-M-------U--XYZ
+ * UPPER:       --C---G--JK---------U--XYZ
  * Digits:      0123456789
  */
    const char *short_options =
-      "f:hr:t:i:b:vVn:I:qgRNB:O:s:o:H:p:T:X:P:a:A:y:u:w:S:F:m:lLQ:W:Dx";
+      "f:hr:t:i:b:vVn:I:qgRNB:O:s:o:H:p:T:E:M:P:a:A:y:u:w:S:F:m:lLQ:W:Dx";
    int arg;
    int options_index=0;
 
@@ -1950,11 +1977,14 @@ process_options(int argc, char *argv[]) {
             if (result != 0)
                err_msg("Invalid target MAC address: %s", optarg);
             break;
-		 case 'X':
+	     case 'E':  /* --filters */
 			result = get_ether_addrs(optarg, &num_filters, &filter_macs);
             if (result != 0)
                err_msg("couldn't load filter macs", optarg);
 			break;
+		 case 'M':  /* --matches */
+			 match_file = strdup(optarg);
+			 break;
          case 'P':	/* --arppln */
             arp_pln=Strtol(optarg, 0);
             break;

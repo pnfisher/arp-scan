@@ -296,7 +296,7 @@ get_ether_addr(const char *address_string, unsigned char *ether_addr) {
 int
 get_ether_addrs(const char * fname, size_t *num_filters, filter_mac **fmacs)
 {
-    FILE * fp = fopen(fname, "r");
+    FILE *fp = fopen(fname, "r");
     char addr[MAXLINE] = { 0 };
     size_t max_filters = 0;
     int result = 0;

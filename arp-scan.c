@@ -334,6 +334,17 @@ main(int argc, char *argv[]) {
    if (!filename_flag && !localnet_flag)
       if ((argc - optind) < 1)
          usage(EXIT_FAILURE, 0);
+
+/*
+ *      If just one filter hardware addresses specified, then
+ *      copy it into target_mac (-T), clobbering any command line
+ *      setting that was put there
+ */
+   if (num_filters == 1) {
+	   for(i = 0; i < sizeof(filter_mac); i++)
+		   target_mac[i] = filter_macs[0].addr[i];
+   }
+
 /*
  * Create MAC/Vendor hash table if quiet if not in effect.
  */

@@ -638,8 +638,8 @@ main(int argc, char *argv[]) {
 				   int found = 0;
 				   while((fgets(ip, sizeof(ip), fp))) {
 					   int len = strlen(ip);
-					   if (len > 0 && ip[len] == '\n')
-						   ip[len] = 0;
+					   if (len > 0 && ip[len-1] == '\n')
+						   ip[--len] = 0;
 					   if (!strncmp(filter_ip, ip, len - 1) && !ip[len])
 					   {
 						   found = 1;
@@ -664,11 +664,10 @@ main(int argc, char *argv[]) {
 					            "%02x:",
 					            filter_match->addr[i]);
 				   snprintf(mac + (i * 3),
-				            3,
-				            "%02x",
+				            4,
+				            "%02x\n",
 				            filter_match->addr[i]);
 				   fputs(mac, fp);
-				   fputc('\n', fp);
 				   fclose(fp);
 			   }
 		   }

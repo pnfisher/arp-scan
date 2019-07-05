@@ -169,6 +169,8 @@
 /* Structures */
 
 typedef struct {
+	int matched;
+	char * ip;
 	unsigned char addr[6];
 } filter_mac;
 

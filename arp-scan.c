@@ -76,6 +76,7 @@ static unsigned char arp_tha[6] = {0, 0, 0, 0, 0, 0};
 static unsigned char target_mac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 static unsigned char source_mac[6];
 static filter_mac *filter_macs=NULL;
+static filter_mac ip_mac = { 0, NULL, { 0, 0, 0, 0, 0, 0 } };
 static size_t num_filters = 0;
 static size_t num_matched = 0;
 static char *ipresults_file=NULL;
@@ -675,6 +676,28 @@ main(int argc, char *argv[]) {
 		   }
 		   if (fp)
 			   fclose(fp);
+	   }
+   }
+   else if (macresults_file && ip_mac.matched)
+   {
+	   FILE *fp = fopen(macresults_file, "w");
+	   if (fp)
+	   {
+		   char mac[MAXLINE] = { 0 };
+		   size_t rem = sizeof(mac);
+		   for(i = 0; i < sizeof(ip_mac.addr) - 1; i++)
+		   {
+			   if (rem < 4)
+				   break;
+			   snprintf(mac + (i * 3), rem, "%02x:", ip_mac.addr[i]);
+			   rem -= 3;
+		   }
+		   if (rem >= 4)
+		   {
+			   snprintf(mac + (i * 3), rem, "%02x\n", ip_mac.addr[i]);
+			   fputs(mac, fp);
+		   }
+		   fclose(fp);
 	   }
    }
 
@@ -1826,9 +1849,17 @@ callback(u_char *args ATTRIBUTE_UNUSED,
 				 }
 			 }
 		 }
-		 else
+		 else {
 			 display_packet(temp_cursor, &arpei, extra_data, extra_data_len,
-							framing, vlan_id, &frame_hdr, header);
+			                framing, vlan_id, &frame_hdr, header);
+			 if (!ip_mac.matched) {
+				 size_t i;
+				 for (i = 0; i < sizeof(ip_mac.addr); i++)
+					 ip_mac.addr[i] = arpei.ar_sha[i];
+				 ip_mac.ip = strdup(my_ntoa(temp_cursor->addr));
+				 ip_mac.matched++;
+			 }
+		 }
          responders++;
       }
       if (verbose > 1)

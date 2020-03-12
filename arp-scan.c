@@ -56,6 +56,7 @@ static float backoff_factor = DEFAULT_BACKOFF_FACTOR;	/* Backoff factor */
 static int snaplen = SNAPLEN;		/* Pcap snap length */
 static char *if_name=NULL;		/* Interface name, e.g. "eth0" */
 static int quiet_flag=0;		/* Don't decode the packet */
+static int justone_match=0;		/* exit when one requested IP found */
 static int ignore_dups=0;		/* Don't display duplicate packets */
 static uint32_t arp_spa;		/* Source IP address */
 static int arp_spa_flag=0;		/* Source IP address specified */
@@ -528,7 +529,8 @@ main(int argc, char *argv[]) {
    reset_cum_err = 1;
    req_interval = interval;
    while (live_count) {
-	   if (num_filters > 0 && num_filters == num_matched)
+	   if (num_filters > 0 &&
+	       (num_matched == num_filters || (justone_match && num_matched > 0)))
 		   break;
 /*
  *      Obtain current time and calculate deltas since last packet and
@@ -1896,6 +1898,7 @@ process_options(int argc, char *argv[]) {
       {"retry", required_argument, 0, 'r'},
       {"timeout", required_argument, 0, 't'},
       {"interval", required_argument, 0, 'i'},
+      {"justone", no_argument, 0, 'j'},
       {"backoff", required_argument, 0, 'b'},
       {"verbose", no_argument, 0, 'v'},
       {"version", no_argument, 0, 'V'},
@@ -1938,7 +1941,7 @@ process_options(int argc, char *argv[]) {
 /*
  * available short option characters:
  *
- * lower:       --cde----jk--------------z
+ * lower:       --cde-----k--------------z
  * UPPER:       --C-E-G--JK-M-------U--XYZ
  * Digits:      ---3456789
  */
@@ -1968,6 +1971,9 @@ process_options(int argc, char *argv[]) {
          case 'i':	/* --interval */
             interval=str_to_interval(optarg);
             break;
+		 case 'j':  /* --justone */
+			 justone_match=1;
+			 break;
          case 'b':	/* --backoff */
             backoff_factor=atof(optarg);
             break;

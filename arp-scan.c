@@ -57,6 +57,7 @@ static int snaplen = SNAPLEN;		/* Pcap snap length */
 static char *if_name=NULL;		/* Interface name, e.g. "eth0" */
 static int quiet_flag=0;		/* Don't decode the packet */
 static int justone_match=0;		/* exit when one requested IP found */
+static int nopromiscuous=0;     /* Dont' set interface into promiscuous mode */
 static int ignore_dups=0;		/* Don't display duplicate packets */
 static uint32_t arp_spa;		/* Source IP address */
 static int arp_spa_flag=0;		/* Source IP address specified */
@@ -206,8 +207,8 @@ main(int argc, char *argv[]) {
          err_msg("pcap_create: %s", errbuf);
       if ((pcap_set_snaplen(pcap_handle, snaplen)) < 0)
          err_msg("pcap_set_snaplen: %s", pcap_geterr(pcap_handle));
-      if ((pcap_set_promisc(pcap_handle, PROMISC)) < 0)
-         err_msg("pcap_set_promisc: %s", pcap_geterr(pcap_handle));
+      if (!nopromiscuous && (pcap_set_promisc(pcap_handle, PROMISC)) < 0)
+	      err_msg("pcap_set_promisc: %s", pcap_geterr(pcap_handle));
       if ((pcap_set_timeout(pcap_handle, TO_MS)) < 0)
          err_msg("pcap_set_timeout: %s", pcap_geterr(pcap_handle));
       if ((pcap_activate(pcap_handle)) < 0)
@@ -1899,6 +1900,7 @@ process_options(int argc, char *argv[]) {
       {"timeout", required_argument, 0, 't'},
       {"interval", required_argument, 0, 'i'},
       {"justone", no_argument, 0, 'j'},
+      {"nopromiscuous", no_argument, 0, 'Z'},
       {"backoff", required_argument, 0, 'b'},
       {"verbose", no_argument, 0, 'v'},
       {"version", no_argument, 0, 'V'},
@@ -1942,7 +1944,7 @@ process_options(int argc, char *argv[]) {
  * available short option characters:
  *
  * lower:       --cde-----k--------------z
- * UPPER:       --C-E-G--JK-M-------U--XYZ
+ * UPPER:       --C-E-G--JK-M-------U--XY-
  * Digits:      ---3456789
  */
    const char *short_options =
@@ -2092,6 +2094,9 @@ process_options(int argc, char *argv[]) {
          case 'W':	/* --pcapsavefile */
             strlcpy(pcap_savefile, optarg, sizeof(pcap_savefile));
             break;
+	     case 'Z': /* --nopromiscuous */
+		     nopromiscuous = 1;
+		     break;
          case OPT_WRITEPKTTOFILE: /* --writepkttofile */
             strlcpy(pkt_filename, optarg, sizeof(pkt_filename));
             pkt_write_file_flag=1;

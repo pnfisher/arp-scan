@@ -499,10 +499,12 @@ main(int argc, char *argv[]) {
    if (!interval) {
       size_t packet_out_len;
 
-      packet_out_len=send_packet(NULL, NULL, NULL); /* Get packet data size */
+      packet_out_len=send_packet(NULL, NULL, NULL, NULL); /* Get packet data size */
       if (packet_out_len < MINIMUM_FRAME_SIZE)
          packet_out_len = MINIMUM_FRAME_SIZE;   /* Adjust to minimum size */
       packet_out_len += PACKET_OVERHEAD;	/* Add layer 2 overhead */
+      if (num_filters)
+	      packet_out_len *= num_filters;
       interval = ((ARP_UINT64)packet_out_len * 8 * 1000000) / bandwidth;
       if (verbose > 1) {
          warn_msg("DEBUG: pkt len=%u bytes, bandwidth=%u bps, interval=%u us",
@@ -604,7 +606,24 @@ main(int argc, char *argv[]) {
             } else {    /* Retry limit not reached for this host */
                if ((*cursor)->num_sent)
                   (*cursor)->timeout *= backoff_factor;
-               send_packet(pcap_handle, *cursor, &last_packet_time);
+               if (num_filters) {
+	               for(i = 0; i < num_filters; i++)
+	               {
+		               filter_mac * fmac = &filter_macs[i];
+		               if (fmac->matched)
+			               continue;
+		               send_packet(pcap_handle,
+		                           *cursor,
+		                           &last_packet_time,
+		                           fmac->addr);
+	               }
+               }
+               else
+	               send_packet(pcap_handle,
+	                           *cursor,
+	                           &last_packet_time,
+	                           target_mac);
+               (*cursor)->num_sent++;
                advance_cursor();
             }
          } else {       /* We can't send a packet to this host yet */
@@ -924,16 +943,20 @@ display_packet(host_entry *he, arp_ether_ipv4 *arpei,
  */
 int
 send_packet(pcap_t *pcap_handle, host_entry *he,
-            struct timeval *last_packet_time) {
+            struct timeval *last_packet_time,
+            unsigned char *tmac) {
    unsigned char buf[MAX_FRAME];
    size_t buflen;
    ether_hdr frame_hdr;
    arp_ether_ipv4 arpei;
    int nsent = 0;
+
+   if (!tmac)
+	   tmac = target_mac;
 /*
  *	Construct Ethernet frame header
  */
-   memcpy(frame_hdr.dest_addr, target_mac, ETH_ALEN);
+   memcpy(frame_hdr.dest_addr, tmac, ETH_ALEN);
    memcpy(frame_hdr.src_addr, source_mac, ETH_ALEN);
    frame_hdr.frame_type = htons(eth_pro);
 /*
@@ -979,13 +1002,15 @@ send_packet(pcap_t *pcap_handle, host_entry *he,
    Gettimeofday(last_packet_time);
    he->last_send_time.tv_sec  = last_packet_time->tv_sec;
    he->last_send_time.tv_usec = last_packet_time->tv_usec;
+#if 0
    he->num_sent++;
+#endif
 /*
  *	Send the packet.
  */
    if (verbose > 1)
-      warn_msg("---\tSending packet #%u to host %s tmo %d", he->num_sent,
-               my_ntoa(he->addr), he->timeout);
+      warn_msg("---\tSending packet #%u to host %s tmo %d",
+               he->num_sent + 1, my_ntoa(he->addr), he->timeout);
    if (write_pkt_to_file) {
       nsent = write(write_pkt_to_file, buf, buflen);
    } else if (!pkt_read_file_flag) {

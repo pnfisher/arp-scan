@@ -126,6 +126,10 @@ main(int argc, char *argv[]) {
    int pcap_fd;			/* Pcap file descriptor */
    unsigned char interface_mac[ETH_ALEN];
    pcap_t *pcap_handle;		/* pcap handle */
+   unsigned filter_interval = 0;
+   size_t packet_out_len = 0;
+   size_t curr_filters = 0;
+
 /*
  *      Initialise file names to the empty string.
  */
@@ -341,17 +345,6 @@ main(int argc, char *argv[]) {
          usage(EXIT_FAILURE, 0);
 
 /*
- *      If just one filter hardware addresses specified, then
- *      copy it into target_mac (-T), clobbering any command line
- *      setting that was put there
- */
-   if (num_filters == 1) {
-	   filter_mac * fmac = &filter_macs[0];
-	   for(i = 0; i < sizeof(fmac->addr); i++)
-		   target_mac[i] = fmac->addr[i];
-   }
-
-/*
  * Create MAC/Vendor hash table if quiet if not in effect.
  */
    if (!quiet_flag) {
@@ -497,19 +490,26 @@ main(int argc, char *argv[]) {
  *      bandwidth unless the interval was manually specified with --interval.
  */
    if (!interval) {
-      size_t packet_out_len;
-
-      packet_out_len=send_packet(NULL, NULL, NULL, NULL); /* Get packet data size */
+      packet_out_len=send_packet(NULL, NULL, NULL, NULL); /* Get packet size */
       if (packet_out_len < MINIMUM_FRAME_SIZE)
          packet_out_len = MINIMUM_FRAME_SIZE;   /* Adjust to minimum size */
       packet_out_len += PACKET_OVERHEAD;	/* Add layer 2 overhead */
-      if (num_filters)
-	      packet_out_len *= num_filters;
       interval = ((ARP_UINT64)packet_out_len * 8 * 1000000) / bandwidth;
-      if (verbose > 1) {
-         warn_msg("DEBUG: pkt len=%u bytes, bandwidth=%u bps, interval=%u us",
-                  packet_out_len, bandwidth, interval);
-      }
+   }
+   if (num_filters) {
+	   curr_filters = num_filters;
+	   filter_interval = interval;
+	   interval = filter_interval * curr_filters;
+   }
+   if (verbose) {
+	   warn_msg("pkt len=%u bytes, "
+	            "bandwidth=%u bps, "
+	            "interval=%u us, "
+	            "filter count=%d",
+	            packet_out_len,
+	            bandwidth,
+	            interval,
+	            num_filters);
    }
 /*
  *      Display initial message.
@@ -606,9 +606,9 @@ main(int argc, char *argv[]) {
             } else {    /* Retry limit not reached for this host */
                if ((*cursor)->num_sent)
                   (*cursor)->timeout *= backoff_factor;
-               if (num_filters) {
-	               for(i = 0; i < num_filters; i++)
-	               {
+               if (curr_filters) {
+	               size_t count = 0;
+	               for(i = 0; i < num_filters; i++) {
 		               filter_mac * fmac = &filter_macs[i];
 		               if (fmac->matched)
 			               continue;
@@ -616,6 +616,21 @@ main(int argc, char *argv[]) {
 		                           *cursor,
 		                           &last_packet_time,
 		                           fmac->addr);
+		               count++;
+	               }
+	               if (count && count < curr_filters) {
+		               curr_filters = count;
+		               interval = filter_interval * curr_filters;
+		               if (verbose) {
+			               warn_msg("pkt len=%u bytes, "
+			                        "bandwidth=%u bps, "
+			                        "interval=%u us, "
+			                        "filter count=%d",
+			                        packet_out_len,
+			                        bandwidth,
+			                        interval,
+			                        curr_filters);
+		               }
 	               }
                }
                else

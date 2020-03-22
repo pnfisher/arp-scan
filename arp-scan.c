@@ -96,6 +96,7 @@ static int write_pkt_to_file=0;		/* Write packet to file for debugging */
 static int rtt_flag=0;			/* Display round-trip time */
 static pcap_dumper_t *pcap_dump_handle = NULL;	/* pcap savefile handle */
 static int plain_flag=0;		/* Only show host information */
+static int unicast_flag=0;
 unsigned int random_seed=0;
 
 int
@@ -345,6 +346,17 @@ main(int argc, char *argv[]) {
          usage(EXIT_FAILURE, 0);
 
 /*
+ *      If just one filter hardware addresses specified, then
+ *      copy it into target_mac (-T), clobbering any command line
+ *      setting that was put there
+ */
+   if (num_filters == 1 && !unicast_flag) {
+	   filter_mac * fmac = &filter_macs[0];
+	   for(i = 0; i < sizeof(fmac->addr); i++)
+		   target_mac[i] = fmac->addr[i];
+   }
+
+/*
  * Create MAC/Vendor hash table if quiet if not in effect.
  */
    if (!quiet_flag) {
@@ -496,7 +508,7 @@ main(int argc, char *argv[]) {
       packet_out_len += PACKET_OVERHEAD;	/* Add layer 2 overhead */
       interval = ((ARP_UINT64)packet_out_len * 8 * 1000000) / bandwidth;
    }
-   if (num_filters) {
+   if (num_filters && unicast_flag) {
 	   curr_filters = num_filters;
 	   filter_interval = interval;
 	   interval = filter_interval * curr_filters;
@@ -1940,6 +1952,7 @@ process_options(int argc, char *argv[]) {
       {"timeout", required_argument, 0, 't'},
       {"interval", required_argument, 0, 'i'},
       {"justone", no_argument, 0, 'j'},
+      {"unicast", no_argument, 0, 'U'},
       {"nopromiscuous", no_argument, 0, 'Z'},
       {"backoff", required_argument, 0, 'b'},
       {"verbose", no_argument, 0, 'v'},
@@ -1984,7 +1997,7 @@ process_options(int argc, char *argv[]) {
  * available short option characters:
  *
  * lower:       --cde-----k--------------z
- * UPPER:       --C-E-G--JK-M-------U--XY-
+ * UPPER:       --C-E-G--JK-M----------XY-
  * Digits:      ---3456789
  */
    const char *short_options =
@@ -2130,6 +2143,9 @@ process_options(int argc, char *argv[]) {
             break;
          case 'Q':	/* --vlan */
             ieee_8021q_vlan = Strtol(optarg, 0);
+            break;
+         case 'U':	/* --unicast */
+	        unicast_flag = 1;
             break;
          case 'W':	/* --pcapsavefile */
             strlcpy(pcap_savefile, optarg, sizeof(pcap_savefile));

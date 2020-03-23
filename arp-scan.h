@@ -169,9 +169,11 @@
 /* Structures */
 
 typedef struct {
+	int ip_addr_set;
 	int matched;
-	char * ip;
-	unsigned char addr[6];
+	char * ip_str;
+	struct in_addr ip_addr;
+	unsigned char mac_addr[6];
 } filter_mac;
 
 typedef struct {

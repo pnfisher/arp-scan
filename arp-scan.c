@@ -78,7 +78,7 @@ static unsigned char arp_tha[6] = {0, 0, 0, 0, 0, 0};
 static unsigned char target_mac[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 static unsigned char source_mac[6];
 static filter_mac *filter_macs=NULL;
-static filter_mac ip_mac = { 0, NULL, { 0, 0, 0, 0, 0, 0 } };
+static filter_mac ip_mac;
 static size_t num_filters = 0;
 static size_t num_matched = 0;
 static char *ipresults_file=NULL;
@@ -130,6 +130,11 @@ main(int argc, char *argv[]) {
    unsigned filter_interval = 0;
    size_t packet_out_len = 0;
    size_t curr_filters = 0;
+
+/*
+ *      Ensure ip_mac is set to all 0s
+ */
+   memset(&ip_mac, 0, sizeof(filter_mac));
 
 /*
  *      Initialise file names to the empty string.
@@ -352,8 +357,8 @@ main(int argc, char *argv[]) {
  */
    if (num_filters == 1 && !unicast_flag) {
 	   filter_mac * fmac = &filter_macs[0];
-	   for(i = 0; i < sizeof(fmac->addr); i++)
-		   target_mac[i] = fmac->addr[i];
+	   for(i = 0; i < sizeof(fmac->mac_addr); i++)
+		   target_mac[i] = fmac->mac_addr[i];
    }
 
 /*
@@ -396,12 +401,17 @@ main(int argc, char *argv[]) {
       FILE *fp;
       char line[MAXLINE];
       char *cp;
+      filter_mac *fmac = NULL;
 
       if ((strcmp(filename, "-")) == 0) {       /* Filename "-" means stdin */
          fp = stdin;
       } else {
          if ((fp = fopen(filename, "r")) == NULL) {
             err_sys("fopen");
+         }
+         if (num_filters && unicast_flag) {
+	         i = 0;
+	         fmac = &filter_macs[i];
          }
       }
 
@@ -410,6 +420,14 @@ main(int argc, char *argv[]) {
             ;
          *cp = '\0';
          add_host_pattern(line, timeout);
+         if (fmac) {
+	         host_entry *he = helist + (num_hosts - 1);
+	         memcpy(&fmac->ip_addr, &he->addr, sizeof(fmac->ip_addr));
+	         fmac->ip_addr_set = 1;
+	         fmac = NULL;
+	         if (++i < num_filters)
+		         fmac = &filter_macs[i];
+         }
       }
       if (fp != stdin) {
          fclose(fp);
@@ -510,8 +528,12 @@ main(int argc, char *argv[]) {
    }
    if (num_filters && unicast_flag) {
 	   curr_filters = num_filters;
-	   filter_interval = interval;
-	   interval = filter_interval * curr_filters;
+	   if (!filename_flag) {
+		   filter_interval = interval;
+		   interval = filter_interval * curr_filters;
+	   }
+	   else
+		   curr_filters = 1;
    }
    if (verbose) {
 	   warn_msg("pkt len=%u bytes, "
@@ -543,7 +565,7 @@ main(int argc, char *argv[]) {
  */
    reset_cum_err = 1;
    req_interval = interval;
-   while (live_count) {
+   while (live_count > 0) {
 	   if (num_filters > 0 &&
 	       (num_matched == num_filters || (justone_match && num_matched > 0)))
 		   break;
@@ -624,11 +646,16 @@ main(int argc, char *argv[]) {
 		               filter_mac * fmac = &filter_macs[i];
 		               if (fmac->matched)
 			               continue;
-		               send_packet(pcap_handle,
-		                           *cursor,
-		                           &last_packet_time,
-		                           fmac->addr);
-		               count++;
+		               if (!fmac->ip_addr_set ||
+		                   !memcmp(&fmac->ip_addr,
+		                           &(*cursor)->addr,
+		                           sizeof(fmac->ip_addr))) {
+			               send_packet(pcap_handle,
+			                           *cursor,
+			                           &last_packet_time,
+			                           fmac->mac_addr);
+			               count++;
+		               }
 	               }
 	               if (count && count < curr_filters) {
 		               curr_filters = count;
@@ -682,9 +709,9 @@ main(int argc, char *argv[]) {
 		   if (!fmac->matched)
 			   continue;
 		   printf("Filter match found: ");
-		   for(j = 0; j < sizeof(fmac->addr) - 1; j++)
-			   printf("%02x:", fmac->addr[j]);
-		   printf("%02x\n", fmac->addr[j]);
+		   for(j = 0; j < sizeof(fmac->mac_addr) - 1; j++)
+			   printf("%02x:", fmac->mac_addr[j]);
+		   printf("%02x\n", fmac->mac_addr[j]);
 	   }
 	   if (macresults_file)
 	   {
@@ -696,16 +723,16 @@ main(int argc, char *argv[]) {
 			   size_t rem = sizeof(mac);
 			   if (!fmac->matched)
 				   continue;
-			   for(j = 0; j < sizeof(fmac->addr) - 1; j++)
+			   for(j = 0; j < sizeof(fmac->mac_addr) - 1; j++)
 			   {
 				   if (rem < 4)
 					   break;
-				   snprintf(mac + (j * 3), rem, "%02x:", fmac->addr[j]);
+				   snprintf(mac + (j * 3), rem, "%02x:", fmac->mac_addr[j]);
 				   rem -= 3;
 			   }
 			   if (rem >= 4)
 			   {
-				   snprintf(mac + (j * 3), rem, "%02x\n", fmac->addr[j]);
+				   snprintf(mac + (j * 3), rem, "%02x\n", fmac->mac_addr[j]);
 				   fputs(mac, fp);
 			   }
 		   }
@@ -720,7 +747,7 @@ main(int argc, char *argv[]) {
 			   filter_mac * fmac = &filter_macs[i];
 			   if (!fmac->matched)
 				   continue;
-			   fputs(fmac->ip, fp);
+			   fputs(fmac->ip_str, fp);
 			   fputc('\n', fp);
 		   }
 		   if (fp)
@@ -734,16 +761,16 @@ main(int argc, char *argv[]) {
 	   {
 		   char mac[MAXLINE] = { 0 };
 		   size_t rem = sizeof(mac);
-		   for(i = 0; i < sizeof(ip_mac.addr) - 1; i++)
+		   for(i = 0; i < sizeof(ip_mac.mac_addr) - 1; i++)
 		   {
 			   if (rem < 4)
 				   break;
-			   snprintf(mac + (i * 3), rem, "%02x:", ip_mac.addr[i]);
+			   snprintf(mac + (i * 3), rem, "%02x:", ip_mac.mac_addr[i]);
 			   rem -= 3;
 		   }
 		   if (rem >= 4)
 		   {
-			   snprintf(mac + (i * 3), rem, "%02x\n", ip_mac.addr[i]);
+			   snprintf(mac + (i * 3), rem, "%02x\n", ip_mac.mac_addr[i]);
 			   fputs(mac, fp);
 		   }
 		   fclose(fp);
@@ -1888,16 +1915,16 @@ callback(u_char *args ATTRIBUTE_UNUSED,
 			 size_t i, j;
 			 for(i = 0, j = 0; num_filters && i < num_filters; i++) {
 				 filter_mac * fmac = &filter_macs[i];
-				 for (j = 0; j < sizeof(fmac->addr); j++) {
-					 if (fmac->addr[j] != arpei.ar_sha[j])
+				 for (j = 0; j < sizeof(fmac->mac_addr); j++) {
+					 if (fmac->mac_addr[j] != arpei.ar_sha[j])
 						 break;
 				 }
-				 if (j == sizeof(fmac->addr)) {
+				 if (j == sizeof(fmac->mac_addr)) {
 					 display_packet(temp_cursor, &arpei, extra_data,
 									extra_data_len, framing, vlan_id,
 									&frame_hdr, header);
-					 if (!fmac->ip)
-						 fmac->ip = strdup(my_ntoa(temp_cursor->addr));
+					 if (!fmac->ip_str)
+						 fmac->ip_str = strdup(my_ntoa(temp_cursor->addr));
 					 if (!fmac->matched)
 						 num_matched++;
 					 fmac->matched++;
@@ -1909,9 +1936,9 @@ callback(u_char *args ATTRIBUTE_UNUSED,
 			                framing, vlan_id, &frame_hdr, header);
 			 if (!ip_mac.matched) {
 				 size_t i;
-				 for (i = 0; i < sizeof(ip_mac.addr); i++)
-					 ip_mac.addr[i] = arpei.ar_sha[i];
-				 ip_mac.ip = strdup(my_ntoa(temp_cursor->addr));
+				 for (i = 0; i < sizeof(ip_mac.mac_addr); i++)
+					 ip_mac.mac_addr[i] = arpei.ar_sha[i];
+				 ip_mac.ip_str = strdup(my_ntoa(temp_cursor->addr));
 				 ip_mac.matched++;
 			 }
 		 }

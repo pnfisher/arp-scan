@@ -1385,6 +1385,26 @@ usage(int status, int detailed) {
       fprintf(stdout, "\t\t\tprograms that understand the pcap file format, such as\n");
       fprintf(stdout, "\t\t\t\"tcpdump\" and \"wireshark\".\n");
       fprintf(stdout, "\n--rtt or -D\t\tDisplay the packet round-trip time.\n");
+      fprintf(stdout, "\n------ custom ecobee parameters -----\n");
+      fprintf(stdout, "\n--ipresults=<s> or -0 <s>\tWrite IP addrresses of responding hosts\n");
+      fprintf(stdout, "\t\t\t\tto file <s>.\n");
+      fprintf(stdout, "\n--macresults=<s> or -1 <s>\tWrite MAC addresses of responding hosts\n");
+      fprintf(stdout, "\t\t\t\tto file <s>.\n");
+      fprintf(stdout, "\n--macfilters=<s> or -2 <s>\tWhen all MAC addresses specified in file <s>\n");
+      fprintf(stdout, "\t\t\t\tare discovered terminate scanning and exit.\n");
+      fprintf(stdout, "\t\t\t\tWith --justone, terminate scanning after any\n");
+      fprintf(stdout, "\t\t\t\tsingle MAC in file <s> discovered and exit.\n");
+      fprintf(stdout, "\t\t\t\tWith --unicast don't broadcast ARP requests.\n");
+      fprintf(stdout, "\t\t\t\tInstead, unicast to all MAC addresses specified\n");
+      fprintf(stdout, "\t\t\t\tin filters file <s>.\n");
+      fprintf(stdout, "\n--justone or -3\t\tTerminate scanning after a first host is discovered.\n");
+      fprintf(stdout, "\n--unicast or -4\t\tDon't broadcast ARP requests. Instead,\n");
+      fprintf(stdout, "\t\t\tunicast ARP requests to specific MAC addresses\n");
+      fprintf(stdout, "\t\t\tcontained in MAC filters file specified using\n");
+      fprintf(stdout, "\t\t\t--macfilters parameter. Has no affect if no MAC\n");
+      fprintf(stdout, "\t\t\tfilters file specified using --macfilters parameter.\n");
+      fprintf(stdout, "\n--nopromiscuous or -5\tDon't put Network Interface Controller hardware\n");
+      fprintf(stdout, "\t\t\tinto promiscuous mode.\n");
    } else {
       fprintf(stdout, "use \"arp-scan --help\" for detailed information on the available options.\n");
    }
@@ -2023,12 +2043,12 @@ process_options(int argc, char *argv[]) {
 /*
  * available short option characters:
  *
- * lower:       --cde-----k--------------z
- * UPPER:       --C-E-G--JK-M----------XY-
- * Digits:      ---3456789
+ * lower:       --cde----jk--------------z
+ * UPPER:       --C-E-G--JK-M-------U--XYZ
+ * Digits:      ------6789
  */
    const char *short_options =
-      "f:hr:t:i:b:vVn:I:qgRNB:O:s:o:H:p:T:E:M:P:a:A:y:u:w:S:F:m:lLQ:W:Dx";
+      "0:1:2:345f:hr:t:i:b:vVn:I:qgRNB:O:s:o:H:p:T:P:a:A:y:u:w:S:F:m:lLQ:W:Dx";
    int arg;
    int options_index=0;
 
@@ -2037,7 +2057,36 @@ process_options(int argc, char *argv[]) {
          struct in_addr source_ip_address;
          int result;
 
-         case 'f':	/* --file */
+         /*
+          * custom ecobee params
+          */
+
+		 case '0':  /* --ipresults */
+			 ipresults_file = strdup(optarg);
+			 break;
+		 case '1':  /* --macresults */
+			 macresults_file = strdup(optarg);
+			 break;
+	     case '2':  /* --macfilters */
+			result = get_ether_addrs(optarg, &num_filters, &filter_macs);
+            if (result != 0)
+               err_msg("couldn't load filter macs", optarg);
+			break;
+		 case '3':  /* --justone */
+			 justone_match=1;
+			 break;
+         case '4':	/* --unicast */
+	        unicast_flag = 1;
+            break;
+	     case '5': /* --nopromiscuous */
+		     nopromiscuous = 1;
+		     break;
+
+	     /*
+	      * regular params
+	      */
+
+	     case 'f':	/* --file */
             strlcpy(filename, optarg, sizeof(filename));
             filename_flag=1;
             break;
@@ -2053,9 +2102,6 @@ process_options(int argc, char *argv[]) {
          case 'i':	/* --interval */
             interval=str_to_interval(optarg);
             break;
-		 case 'j':  /* --justone */
-			 justone_match=1;
-			 break;
          case 'b':	/* --backoff */
             backoff_factor=atof(optarg);
             break;
@@ -2120,17 +2166,6 @@ process_options(int argc, char *argv[]) {
             if (result != 0)
                err_msg("Invalid target MAC address: %s", optarg);
             break;
-	     case '0':  /* --macfilters */
-			result = get_ether_addrs(optarg, &num_filters, &filter_macs);
-            if (result != 0)
-               err_msg("couldn't load filter macs", optarg);
-			break;
-		 case '1':  /* --ipresults */
-			 ipresults_file = strdup(optarg);
-			 break;
-		 case '2':  /* --macresults */
-			 macresults_file = strdup(optarg);
-			 break;
          case 'P':	/* --arppln */
             arp_pln=Strtol(optarg, 0);
             break;
@@ -2171,15 +2206,9 @@ process_options(int argc, char *argv[]) {
          case 'Q':	/* --vlan */
             ieee_8021q_vlan = Strtol(optarg, 0);
             break;
-         case 'U':	/* --unicast */
-	        unicast_flag = 1;
-            break;
          case 'W':	/* --pcapsavefile */
             strlcpy(pcap_savefile, optarg, sizeof(pcap_savefile));
             break;
-	     case 'Z': /* --nopromiscuous */
-		     nopromiscuous = 1;
-		     break;
          case OPT_WRITEPKTTOFILE: /* --writepkttofile */
             strlcpy(pkt_filename, optarg, sizeof(pkt_filename));
             pkt_write_file_flag=1;

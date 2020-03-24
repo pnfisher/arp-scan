@@ -1711,7 +1711,7 @@ remove_host(host_entry **he) {
          advance_cursor();
    } else {
       if (verbose > 1)
-         warn_msg("***\tremove_host called on non-live host: SHOULDN'T HAPPEN");
+         warn_msg("---\tremove_host called on no-longer-live host\n");
    }
 }
 
@@ -1993,14 +1993,23 @@ callback(u_char *args ATTRIBUTE_UNUSED,
 void
 process_options(int argc, char *argv[]) {
    struct option long_options[] = {
+	   /*
+	    * custom ecobee params
+	    */
+	  {"ipresults", required_argument, 0, '0'},
+      {"macresults", required_argument, 0, '1'},
+	  {"macfilters", required_argument, 0, '2'},
+      {"justone", no_argument, 0, '3'},
+      {"unicast", no_argument, 0, '4'},
+      {"nopromiscuous", no_argument, 0, '5'},
+      /*
+       * regular params
+       */
       {"file", required_argument, 0, 'f'},
       {"help", no_argument, 0, 'h'},
       {"retry", required_argument, 0, 'r'},
       {"timeout", required_argument, 0, 't'},
       {"interval", required_argument, 0, 'i'},
-      {"justone", no_argument, 0, 'j'},
-      {"unicast", no_argument, 0, 'U'},
-      {"nopromiscuous", no_argument, 0, 'Z'},
       {"backoff", required_argument, 0, 'b'},
       {"verbose", no_argument, 0, 'v'},
       {"version", no_argument, 0, 'V'},
@@ -2019,9 +2028,6 @@ process_options(int argc, char *argv[]) {
       {"arphrd", required_argument, 0, 'H'},
       {"arppro", required_argument, 0, 'p'},
       {"destaddr", required_argument, 0, 'T'},
-	  {"macfilters", required_argument, 0, '0'},
-	  {"ipresults", required_argument, 0, '1'},
-      {"macresults", required_argument, 0, '2'},
       {"arppln", required_argument, 0, 'P'},
       {"arphln", required_argument, 0, 'a'},
       {"padding", required_argument, 0, 'A'},

@@ -317,8 +317,9 @@ get_ether_addrs(const char * fname, size_t *num_filters, filter_mac **fmacs)
                 break;
             }
         }
-        if ((result = get_ether_addr(addr, (*fmacs)[*num_filters].addr)) != 0)
-            break;
+        result = get_ether_addr(addr, (*fmacs)[*num_filters].mac_addr);
+        if (result != 0)
+	        break;
         (*num_filters)++;
     }
 
